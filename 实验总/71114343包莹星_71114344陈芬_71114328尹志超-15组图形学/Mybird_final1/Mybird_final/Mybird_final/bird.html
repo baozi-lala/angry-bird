@@ -1,0 +1,218 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title> 图形学 </title>
+</head>
+<script id="vertex-shader" type="x-shader/x-vertex">
+
+attribute  vec4 vPosition;
+attribute  vec4 vColor;
+attribute  vec2 vTexCoord;
+
+varying vec4 fColor;
+varying vec2 fTexCoord;
+
+uniform vec3 theta;//旋转
+uniform float scale;//平移
+uniform float uzoom;//放缩
+uniform float move;//平移得到2个对象
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+ 
+//光照参数
+attribute  vec3 vNormal;//法向量
+uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+uniform vec4 lightPosition;//光源位置
+uniform float shininess;
+uniform mat3 normalMatrix;//用来变换法向量的矩阵
+   uniform mat4 convertion;
+//光照参数1
+//attribute  vec3 vNormal1;//法向量
+uniform vec4 ambientProduct1, diffuseProduct1, specularProduct1;
+uniform vec4 lightPosition1;//光源位置
+uniform float shininess1;
+//uniform mat3 normalMatrix1;//用来变换法向量的矩阵
+
+void main()
+{
+    // Compute the sines and cosines of theta for each of
+    //   the three axes in one computation.
+    vec3 angles = radians( theta );
+    vec3 c = cos( angles );
+    vec3 s = sin( angles );
+
+    // Remeber: thse matrices are column-major
+    // 旋转矩阵
+    // rotx和roty用于一开始将物体旋转一定的角度，显得更立体
+    mat4 rotx =mat4(1.0,  0.0,  0.0, 0.0,
+            0.0,  0.95,  0.25, 0.0,
+            0.0, -0.25,  0.95, 0.0,
+            0.0,  0.0,  0.0, 1.0 );
+
+    mat4 roty=mat4(0.87, 0.0, -0.5, 0.0,
+            0.0, 1.0,  0.0, 0.0,
+            0.5, 0.0,  0.87, 0.0,
+            0.0, 0.0,  0.0, 1.0 );
+    
+
+    vec3 pos = (modelViewMatrix * vPosition).xyz;
+    
+    
+    //vec3 light = lightPosition.xyz;
+    //vec3 L = normalize( light - pos );//归一化
+     vec3 L;
+if(lightPosition.w == 0.0) L = normalize(lightPosition.xyz);
+    else L = normalize( lightPosition.xyz - pos );
+    
+    vec3 E = normalize( -pos );
+    vec3 H = normalize( L + E );
+    
+    vec4 NN = vec4(vNormal,0);
+
+    // Transform vertex normal into eye coordinates
+       
+    vec3 N = normalize( (modelViewMatrix*NN).xyz);
+
+    // Compute terms in the illumination equation
+    vec4 ambient = ambientProduct;
+
+    float Kd = max( dot(L, N), 0.0 );
+    vec4  diffuse = Kd*diffuseProduct;
+
+    float Ks = pow( max(dot(N, H), 0.0), shininess );
+    vec4  specular = Ks * specularProduct;
+    
+    if( dot(L, N) < 0.0 ) {
+    specular = vec4(0.0, 0.0, 0.0, 1.0);
+    } 
+
+    //光照1
+//fixed light postion
+    
+    // vec3 light1 = lightPosition1.xyz;
+    // vec3 L1 = normalize( light1 - pos );
+    vec3 L1;
+ if(lightPosition1.w == 0.0) L1=normalize(lightPosition1.xyz);
+    else L1 = normalize( lightPosition1.xyz - pos );
+    
+    vec3 E1 = normalize( -pos );
+    vec3 H1 = normalize( L1 + E1 );
+    
+    //vec4 NN1 = vec4(vNormal1,0);
+
+    // Transform vertex normal into eye coordinates
+       
+    //vec3 N1 = normalize( (modelViewMatrix*NN).xyz);
+
+    // Compute terms in the illumination equation
+    vec4 ambient1 = ambientProduct1;
+
+    float Kd1 = max( dot(L1, N), 0.0 );
+    vec4  diffuse1 = Kd1*diffuseProduct1;
+
+    float Ks1 = pow( max(dot(N, H1), 0.0), shininess1 );
+    vec4  specular1 = Ks1 * specularProduct1;
+    
+    if( dot(L1, N) < 0.0 ) {
+    specular1 = vec4(0.0, 0.0, 0.0, 1.0);
+    } 
+    //这里只保留了平移，放缩和绕y轴旋转
+    gl_Position =projectionMatrix*modelViewMatrix*vPosition*convertion;
+       gl_PointSize=12.0;
+  
+    fColor = vColor+ambient + diffuse +specular+ambient1 + diffuse1 +specular1;
+    fColor.a = 1.0;
+    fTexCoord = vTexCoord;
+}
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+
+precision mediump float;
+
+varying vec4 fColor;
+varying  vec2 fTexCoord;
+
+uniform sampler2D texture0;
+uniform sampler2D texture1;
+uniform int bTexCoord;
+void
+main()
+{
+    if (bTexCoord==0)
+        gl_FragColor = 0.5*fColor+0.5*texture2D( texture0, fTexCoord );
+    else
+        gl_FragColor = texture2D( texture1, fTexCoord );
+}
+</script>
+
+<script type="text/javascript" src="../Common/webgl-utils.js"></script>
+<script type="text/javascript" src="../Common/initShaders.js"></script>
+<script type="text/javascript" src="../Common/MV.js"></script>
+<script type="text/javascript" src="bird.js"></script>
+<br />
+<label id="g">光源</label>
+<p>
+        <button id="buttonlightx">x轴正向</button>
+        <button id="buttonlightxf">x轴负向</button>
+        <button id="buttonlighty">y轴正向</button>
+        <button id="buttonlightyf">y轴负向</button>
+        <button id="buttonlightz">z轴正向</button>
+        <button id="buttonlightzf">z轴负向</button>
+    </p>
+ <button id="layerw">向上动眉毛</button>
+    <button id="layerh">向下动眉毛Y</button>
+    <br/>
+  <!--   <label id="labelmaterialAmbient">materialAmbient</label>
+    <input id="materialAmbient" type="range" onchange="change()" oninput="change()" min="0.0" max="1.0" step="0.1" value="0.5" />  
+    <br />
+    <label id="labelmaterialDiffuse">materialDiffuse</label>
+    <input id="materialDiffuse" type="range" onchange="change()" oninput="change()" min="0.0" max="1.0" step="0.1" value="0.5" />  
+    <br /> -->
+<body>
+<canvas id="gl-canvas" width="512" height="512">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+<img id = "texImage" src = "cloth.gif" hidden></img>
+<img id = "texImageBackGround" src = "background.jpg" hidden></img>
+    <br/>
+    <label id="type">类型：</label>
+    <button id="ortho">正交</button>
+    <button id="perspective">透视</button>
+<br/>
+<label id="rotate">旋转：</label>
+<button id= "xButton">绕X轴</button>
+<button id= "yButton">绕Y轴</button>
+<button id= "zButton">绕Z轴</button>
+<button id= "lButton">左移</button>
+<button id= "rButton">右移</button>
+<button id= "zoomButton1">放大</button>
+<button id= "zoomButton2">缩小</button>
+<button value="暂停" id= "stopButton">暂停</button>
+    <br/>
+    <label id="screen">视图列表</label>
+   <button id= "nearScreen">正视图</button>
+    <button id="farScreen">后视图</button>
+    <button id="topScreen">俯视图</button>
+    <button id="bottomScreen">下视图</button>
+    <button id="leftScreen">左视图</button>
+    <button id="rightScreen">右视图</button>
+    <br/>
+    <label id="labeldistance">distance</label>
+    <input id="distance" type="range" onchange="change()" oninput="change()" min="30" max="100" step="1" value="50" />  
+    <br />
+    <label id="labelfovy">fovy</label>
+    <input id="fovy" type="range" onchange="change()" oninput="change()" min="0" max="180" step="1" value="45" />
+    <br />
+    <label id ="labeltheta">theta</label>
+    <input id="theta" type="range" onchange="change()" oninput="change()" min="0" max="360" step="1" value="0" />  
+    <br />
+    <label id="labelphi">phi</label>
+    <input id="phi" type="range" onchange="change()" oninput="change()" min="0" max="360" step="1" value="0" />
+    <br />
+   
+    
+
+</body>
+</html>
